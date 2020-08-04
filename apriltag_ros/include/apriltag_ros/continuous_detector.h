@@ -48,6 +48,7 @@
 #include <memory>
 
 #include <nodelet/nodelet.h>
+#include <Eigen/Dense>
 
 namespace apriltag_ros
 {
@@ -61,15 +62,32 @@ class ContinuousDetector: public nodelet::Nodelet
   void imageCallback(const sensor_msgs::ImageConstPtr& image_rect,
                      const sensor_msgs::CameraInfoConstPtr& camera_info);
 
+  void movingFilter(std::vector<double>& f_pose, const std::vector<double> raw_data,
+     Eigen::Matrix<double, 5, 7>& buff_array, int delayBufferLen, std::vector<double>& sum_data, int& oldestSampleIndex);
+
+  // void tag_detections_transformation(AprilTagDetectionArray apriltag_detection_array);
+  void tag_detections_transformation();
+
+  void publish_filtered_pose(const std::vector<double> pose, const unsigned int i);
+
+
  private:
   std::shared_ptr<TagDetector> tag_detector_;
   bool draw_tag_detections_image_;
   cv_bridge::CvImagePtr cv_image_;
+  nav_msgs::Path camera_path;
+  ros::Timer timer;
+  // AprilTagDetectionArray tag_detection_array;
+
 
   std::shared_ptr<image_transport::ImageTransport> it_;
   image_transport::CameraSubscriber camera_image_subscriber_;
   image_transport::Publisher tag_detections_image_publisher_;
   ros::Publisher tag_detections_publisher_;
+  ros::Publisher filtered_posestamped_publisher_;
+  ros::Publisher path_publisher;
+
+
 };
 
 } // namespace apriltag_ros

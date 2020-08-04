@@ -37,6 +37,9 @@ int main(int argc, char **argv)
 {
   ros::init(argc, argv, "apriltag_ros");
 
+  ros::AsyncSpinner spinner(6);
+  spinner.start();
+
   nodelet::Loader nodelet;
   nodelet::M_string remap(ros::names::getRemappings());
   nodelet::V_string nargv;
@@ -45,6 +48,9 @@ int main(int argc, char **argv)
               "apriltag_ros/ContinuousDetector",
               remap, nargv);
 
-  ros::spin();
+  // ros::spin();
+  spinner.stop();
+  ros::waitForShutdown();
+
   return 0;
 }

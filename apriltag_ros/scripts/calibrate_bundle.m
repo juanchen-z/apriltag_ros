@@ -51,7 +51,7 @@
 calibration_file = 'data/calibration.bag';
 
 % Bundle name
-bundle_name = 'my_bundle';
+bundle_name = 'my_bundle_eight';
 
 % Master tag's ID
 master_id = 0;

@@ -62,6 +62,10 @@
 #include <sensor_msgs/image_encodings.h>
 #include <tf/transform_broadcaster.h>
 
+#include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
+#include <geometry_msgs/PoseStamped.h>
+
 #include <apriltag.h>
 
 #include "apriltag_ros/AprilTagDetection.h"

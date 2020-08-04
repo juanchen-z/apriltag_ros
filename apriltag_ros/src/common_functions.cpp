@@ -42,10 +42,12 @@
 #include "tagCircle21h7.h"
 #include "tagCircle49h12.h"
 
+
 namespace apriltag_ros
 {
 
-TagDetector::TagDetector(ros::NodeHandle pnh) :
+
+TagDetector::TagDetector(ros::NodeHandle pnh):
     family_(getAprilTagOption<std::string>(pnh, "tag_family", "tag36h11")),
     threads_(getAprilTagOption<int>(pnh, "tag_threads", 4)),
     decimate_(getAprilTagOption<double>(pnh, "tag_decimate", 1.0)),
@@ -53,6 +55,7 @@ TagDetector::TagDetector(ros::NodeHandle pnh) :
     refine_edges_(getAprilTagOption<int>(pnh, "tag_refine_edges", 1)),
     debug_(getAprilTagOption<int>(pnh, "tag_debug", 0)),
     publish_tf_(getAprilTagOption<bool>(pnh, "publish_tf", false))
+
 {
   // Parse standalone tag descriptions specified by user (stored on ROS
   // parameter server)
@@ -159,7 +162,7 @@ TagDetector::TagDetector(ros::NodeHandle pnh) :
   if (!pnh.getParam("camera_frame", camera_tf_frame_))
   {
     ROS_WARN_STREAM("Camera frame not specified, using 'camera'");
-    camera_tf_frame_ = "camera";
+    camera_tf_frame_ = "";
   }
 }
 
@@ -328,6 +331,7 @@ AprilTagDetectionArray TagDetector::detectTags (
     // Using these frames together with cv::solvePnP directly avoids
     // AprilTag 2's frames altogether.
     // TODO solvePnP[Ransac] better?
+
     std::vector<cv::Point3d > standaloneTagObjectPoints;
     std::vector<cv::Point2d > standaloneTagImagePoints;
     addObjectPoints(tag_size/2, cv::Matx44d::eye(), standaloneTagObjectPoints);
@@ -348,11 +352,14 @@ AprilTagDetectionArray TagDetector::detectTags (
     tag_detection.size.push_back(tag_size);
     tag_detection_array.detections.push_back(tag_detection);
     detection_names.push_back(standaloneDescription->frame_name());
+
   }
 
   //=================================================================
   // Estimate bundle origin pose for each bundle in which at least one
   // member tag was detected
+
+  
 
   for (unsigned int j=0; j<tag_bundle_descriptions_.size(); j++)
   {
@@ -367,6 +374,7 @@ AprilTagDetectionArray TagDetector::detectTags (
       // Some member tags of this bundle were detected, get the bundle's
       // position!
       TagBundleDescription& bundle = tag_bundle_descriptions_[j];
+
 
       Eigen::Matrix4d transform =
           getRelativeTransform(bundleObjectPoints[bundleName],
@@ -505,13 +513,50 @@ Eigen::Matrix4d TagDetector::getRelativeTransform(
   cv::solvePnP(objectPoints, imagePoints, cameraMatrix, distCoeffs, rvec, tvec);
   cv::Matx33d R;
   cv::Rodrigues(rvec, R);
-  Eigen::Matrix3d wRo;
-  wRo << R(0,0), R(0,1), R(0,2), R(1,0), R(1,1), R(1,2), R(2,0), R(2,1), R(2,2);
+  Eigen::Matrix3d wRo, twRo;
+
+  // Eigen::Vector3d tw2w;
+
+  // wRo << R(0,0), R(0,1), R(0,2), R(1,0), R(1,1), R(1,2), R(2,0), R(2,1), R(2,2);
+
+  // Eigen::Matrix4d T; // homogeneous transformation matrix
+  // T.topLeftCorner(3, 3) = wRo;
+  // T.col(3).head(3) <<
+  //     tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
+  // T.row(3) << 0,0,0,1;
+  // return T;
+
+// Rb_c manual calibrated as
+//   [[-0.04972128  0.99876192 -0.00108752]
+//  [-0.33380352 -0.01557472  0.94216032]
+//  [ 0.94097632  0.04723152  0.33416544]]
+
+  twRo << R(0,0), R(0,1), R(0,2), R(1,0), R(1,1), R(1,2), R(2,0), R(2,1), R(2,2);  // w2c
+
+
+  Eigen::Vector3d t;
+  t << tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
+  t = -twRo.transpose() * t; 
+
+  Eigen::Matrix3d rr;
+  // rr << -0.04972128,-0.33380352,0.94097632,0.99876192,-0.01557472,0.04723152,-0.00108752, 0.94216032,0.33416544; // c to b 
+  rr << 0.0,0.0,1.0,1.0,0.0,0.0,0.0,1.0,0.0; // c to b 
+
+  // twRo = rr * twRo; // c2b * w2c = w2b 
+
+  // tw2w = twRo * t; // b2w^T * rw
+  wRo = twRo.transpose()*rr.transpose();
+  // wRo = twRo.transpose(); // b2w
 
   Eigen::Matrix4d T; // homogeneous transformation matrix
   T.topLeftCorner(3, 3) = wRo;
-  T.col(3).head(3) <<
-      tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
+  // T.col(3).head(3) <<
+  //     tvec.at<double>(0), tvec.at<double>(1), tvec.at<double>(2);
+
+  // std::cout<< "b2w: " << wRo <<std::endl;
+  T(0,3) = t[0];
+  T(1,3) = t[1];
+  T(2,3) = t[2];
   T.row(3) << 0,0,0,1;
   return T;
 }
